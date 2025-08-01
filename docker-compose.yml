@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: newchats_db
+    environment:
+      POSTGRES_DB: newchats
+      POSTGRES_USER: newchats_user
+      POSTGRES_PASSWORD: newchats_pass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - newchats_network
+
+  # Redis para cache e sessões
+  redis:
+    image: redis:7-alpine
+    container_name: newchats_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - newchats_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: newchats_backend
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: newchats
+      DB_USER: newchats_user
+      DB_PASSWORD: newchats_pass123
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: newchats_jwt_secret_key_2024
+      STRIPE_SECRET_KEY: sk_test_your_stripe_secret_key
+      OPENAI_API_KEY: your_openai_api_key
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - newchats_network
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: newchats_frontend
+    ports:
+      - "3000:80"
+    environment:
+      REACT_APP_API_URL: http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - newchats_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: newchats_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - newchats_network
+
+volumes:
+  postgres_data:
+
+networks:
+  newchats_network:
+    driver: bridge
