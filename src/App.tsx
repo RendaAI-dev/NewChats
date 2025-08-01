@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MessageSquare, 
   Zap, 
@@ -15,11 +15,29 @@ import {
   BarChart3,
   Globe,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
+import { AuthPage } from './components/auth/AuthPage';
+import { Dashboard } from './components/dashboard/Dashboard';
+import { PricingSection } from './components/pricing/PricingSection';
+import { SuccessPage } from './components/success/SuccessPage';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
+  const { user, loading, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'home' | 'dashboard' | 'success'>('home');
+
+  // Check for success page redirect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      setCurrentPage('success');
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -29,11 +47,11 @@ function App() {
   };
 
   const handleStartNow = () => {
-    scrollToSection('pricing');
-  };
-
-  const handleSubscribeNow = () => {
-    window.open('https://app.newchats.io/webhook/integracao-stripe', '_blank');
+    if (user) {
+      setCurrentPage('dashboard');
+    } else {
+      scrollToSection('pricing');
+    }
   };
 
   const handleDemo = () => {
@@ -43,6 +61,70 @@ function App() {
   const handleContactSales = () => {
     window.open('https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre o New Chats.', '_blank');
   };
+
+  const handleAuthSuccess = () => {
+    setCurrentPage('dashboard');
+  };
+
+  const handleGoToDashboard = () => {
+    setCurrentPage('dashboard');
+  };
+
+  const handleGoHome = () => {
+    setCurrentPage('home');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show success page
+  if (currentPage === 'success') {
+    return <SuccessPage onGoToDashboard={handleGoToDashboard} />;
+  }
+
+  // Show auth page if not authenticated and not on home page
+  if (!user && currentPage !== 'home') {
+    return <AuthPage onSuccess={handleAuthSuccess} />;
+  }
+
+  // Show dashboard if authenticated and on dashboard page
+  if (user && currentPage === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <button onClick={handleGoHome} className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                  New Chats
+                </span>
+              </button>
+              
+              <div className="flex items-center space-x-4">
+                <span className="text-gray-700">Olá, {user.user_metadata?.full_name || user.email}</span>
+                <button
+                  onClick={signOut}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Sair</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <Dashboard />
+      </div>
+    );
+  }
 
   const features = [
     {
@@ -125,14 +207,29 @@ function App() {
               <button onClick={() => scrollToSection('pricing')} className="text-gray-700 hover:text-green-600 transition-colors cursor-pointer">Preços</button>
               <button onClick={() => scrollToSection('testimonials')} className="text-gray-700 hover:text-green-600 transition-colors cursor-pointer">Depoimentos</button>
               <button onClick={() => scrollToSection('faq')} className="text-gray-700 hover:text-green-600 transition-colors cursor-pointer">FAQ</button>
-             <a 
-               href="https://app.newchats.io/login" 
-               target="_blank"
-               rel="noopener noreferrer"
-               className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-             >
-               Login
-             </a>
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setCurrentPage('dashboard')}
+                    className="text-gray-700 hover:text-green-600 transition-colors"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={signOut}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  >
+                    Sair
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCurrentPage('dashboard')}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                >
+                  Login
+                </button>
+              )}
             </nav>
 
             <button
@@ -152,14 +249,29 @@ function App() {
               <button onClick={() => { scrollToSection('pricing'); setMobileMenuOpen(false); }} className="block px-3 py-2 text-gray-700 hover:text-green-600 w-full text-left">Preços</button>
               <button onClick={() => { scrollToSection('testimonials'); setMobileMenuOpen(false); }} className="block px-3 py-2 text-gray-700 hover:text-green-600 w-full text-left">Depoimentos</button>
               <button onClick={() => { scrollToSection('faq'); setMobileMenuOpen(false); }} className="block px-3 py-2 text-gray-700 hover:text-green-600 w-full text-left">FAQ</button>
-             <a 
-               href="https://app.newchats.io/login" 
-               target="_blank"
-               rel="noopener noreferrer"
-               className="block px-3 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-center mx-3 mt-2"
-             >
-               Login
-             </a>
+              {user ? (
+                <>
+                  <button
+                    onClick={() => { setCurrentPage('dashboard'); setMobileMenuOpen(false); }}
+                    className="block px-3 py-2 text-gray-700 hover:text-green-600 w-full text-left"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                    className="block px-3 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors text-center mx-3 mt-2"
+                  >
+                    Sair
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setCurrentPage('dashboard'); setMobileMenuOpen(false); }}
+                  className="block px-3 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-center mx-3 mt-2"
+                >
+                  Login
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -191,7 +303,7 @@ function App() {
                 onClick={handleStartNow}
                 className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200 flex items-center cursor-pointer"
               >
-                Começar Agora
+                {user ? 'Ir para Dashboard' : 'Começar Agora'}
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
               <button 
@@ -330,63 +442,9 @@ function App() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Plano Único e Completo
-            </h2>
-            <p className="text-xl text-gray-600">
-              Todas as funcionalidades premium em um só plano
-            </p>
-          </div>
-
-          <div className="flex justify-center">
-            <div className="bg-gradient-to-br from-green-500 to-blue-600 p-8 rounded-xl shadow-xl text-white relative max-w-md w-full">
-              <div className="absolute top-4 right-4 bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-sm font-semibold">
-                Mais Popular
-              </div>
-              <h3 className="text-2xl font-semibold mb-4">New Chats Pro</h3>
-              <div className="mb-6">
-                <span className="text-4xl font-bold">R$ 699,99</span>
-                <span className="text-green-100">/mês</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  Contatos ilimitados
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  Até 10 conexões WhatsApp
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  IA para mensagens
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  Chamada perdida
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  Suporte prioritário
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-3 text-green-200" />
-                  Campanhas ilimitadas
-                </li>
-              </ul>
-              <button 
-                onClick={handleSubscribeNow}
-                className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                Assinar Agora
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <div id="pricing">
+        <PricingSection />
+      </div>
 
       {/* FAQ */}
       <section id="faq" className="py-20 bg-white">
@@ -443,7 +501,7 @@ function App() {
               onClick={handleStartNow}
               className="bg-white text-green-600 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center cursor-pointer"
             >
-              Começar Teste Gratuito
+              {user ? 'Ir para Dashboard' : 'Começar Teste Gratuito'}
               <ArrowRight className="w-5 h-5 ml-2" />
             </button>
             <button 
